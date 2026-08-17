@@ -11,19 +11,15 @@ from bs4 import BeautifulSoup
 from db import insert_data
 
 def get_browser():
-    # first get the initial html, cookies and local storage
-    # check the os and set the browser path
     if os.name == 'nt':
         browser_path = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
     else:
         browser_path = "/usr/bin/google-chrome-stable"
 
     op = ChromiumOptions().set_browser_path(browser_path)
-    # op.headless(True)
     op.auto_port()
     page = ChromiumPage(op)
     return page
-
 
 def get_current_epoch():
     current_epoch_ms = int(time.time() * 1000)
@@ -41,7 +37,7 @@ def structure_keyword_data(search_results):
         thumbnail_url = search_result["item"]['video']['cover']
         unique_id = search_result["item"]["author"]["id"]
         author_username = search_result['item']['author']['uniqueId']
-        author_nickname =  search_result['item']['author']['nickname']
+        author_nickname = search_result['item']['author']['nickname']
         author_follower_count = search_result['item']["authorStats"]["followerCount"]
         author_like_count = search_result['item']["authorStats"]["heartCount"]
         video_url = "https://www.tiktok.com/@" + author_username + "/video/" + video_id
@@ -52,12 +48,11 @@ def structure_keyword_data(search_results):
         video_like_count = search_result["item"]["stats"]["diggCount"]
         timestamp = search_result["item"]["createTime"]
         text_extra = search_result["item"]["textExtra"]
-        is_top_influencer = True if author_follower_count >= 1000000 and author_like_count >= 1000000 else False
+        
         hashtag = ""
         for hashtag_obj in text_extra:
-            hashtag = hashtag + hashtag_obj["hashtagName"] +  ","
+            hashtag = hashtag + hashtag_obj["hashtagName"] + ","
 
-        print(f"Video URL: {video_url}")
         auth_final_results.append({
             "name": author_nickname,
             "title": author_nickname,
@@ -67,8 +62,6 @@ def structure_keyword_data(search_results):
             "followers": author_follower_count,
             "created_at": datetime.now(),
             "updated_at": datetime.now()
-            # "is_top_influncer": is_top_influencer
-
         })
 
         content_final_results.append({
@@ -87,14 +80,6 @@ def structure_keyword_data(search_results):
     insert_data("chickenapi_author", auth_final_results)
     insert_data("chickenapi_content", content_final_results)
 
-def parse_video_url(video_url, changed_data):   
-    for key in changed_data:
-        # use regex to replace the key value pair
-        video_url = re.sub(rf"{key}=[^&]+", f"{key}={changed_data[key]}", video_url)
-
-    return video_url
-
-
 def scrape_keyword_videos(keyword):
     try:
         browser = get_browser()
@@ -103,8 +88,6 @@ def scrape_keyword_videos(keyword):
         print(f"Scraping URL: {URL}")
         browser.listen.start('search/general/full/')
         browser.get(URL)
-        request_url = None
-        response_data = None
         has_more = 1
         all_video_data = []
         while has_more:
@@ -115,13 +98,11 @@ def scrape_keyword_videos(keyword):
                
                 with open(f"sample_data/response.{get_current_epoch()}.json", "w", encoding="utf-8") as f:
                     json.dump(response_data, f, indent=4)
-                
+               
                 has_more = response_data['has_more']
-                cursor = response_data['cursor']
                 scrolling_retry = 0
                 scraping_ended = False
                 while scrolling_retry < 3:
-                    # if No more results in html body, break
                     soup = BeautifulSoup(browser.html, 'html.parser')
                     if soup.body and "No more results".lower() in soup.body.get_text().lower():
                         has_more = 0
@@ -133,7 +114,6 @@ def scrape_keyword_videos(keyword):
                         break
                     except:
                         print(traceback.format_exc())
-                        # get the div with data-e2e="search_top-item-list"'s last child
                         browser.run_js_loaded('document.querySelector(\'[data-e2e="search_top-item-list"]\').firstChild.scrollIntoView({ behavior: "smooth" })')
                         time.sleep(2)
                         browser.run_js_loaded('document.querySelector(\'[data-e2e="search_top-item-list"]\').lastChild.scrollIntoView({ behavior: "smooth" })')
@@ -153,13 +133,9 @@ def scrape_keyword_videos(keyword):
     except KeyboardInterrupt:
         print("Keyboard interrupt detected. Exiting...")
 
-
 if __name__ == "__main__":
     keyword_list = ["traveltok", "wanderlust"]
     for keyword in keyword_list:
         info = scrape_keyword_videos(keyword)
         print("Done----------------------------")
         print(info)
-
-        sleep(9999)
-  
